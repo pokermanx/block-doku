@@ -2,18 +2,20 @@ import { ChangeDetectorRef, Component, NgZone } from '@angular/core';
 import * as _ from 'lodash';
 
 class BoardCoords {
+  iBlockRow: number = 0;
   iBlock: number = 0;
   iRow: number = 0;
   iTile: number = 0;
 
   get stringValue() {
-    return `${this.iBlock};${this.iRow};${this.iTile}`;
+    return `${this.iBlockRow};${this.iBlock};${this.iRow};${this.iTile}`;
   }
   get numberValue() {
-    return +`${this.iBlock}${this.iRow}${this.iTile}`;
+    return +`${this.iBlockRow}${this.iBlock}${this.iRow}${this.iTile}`;
   }
 
-  constructor(iBlock: number, iRow: number, iTile: number) {
+  constructor(iBlockRow: number, iBlock: number, iRow: number, iTile: number) {
+    this.iBlockRow = iBlockRow;
     this.iBlock = iBlock;
     this.iRow = iRow;
     this.iTile = iTile;
@@ -27,6 +29,7 @@ class Tile {
   coords: BoardCoords;
 
   constructor(
+    iBlockRow: number,
     iBlock: number,
     iRow: number,
     iTile: number,
@@ -34,7 +37,7 @@ class Tile {
     isProjection: boolean = false,
     isMatchPreview: boolean = false,
   ) {
-    this.coords = new BoardCoords(iBlock, iRow, iTile);
+    this.coords = new BoardCoords(iBlockRow, iBlock, iRow, iTile);
     this.isFilled = isFilled;
     this.isProjection = isProjection;
     this.isMatchPreview = isMatchPreview;
@@ -45,8 +48,8 @@ class InsertShapeData {
   pattern: any[];
   coords: BoardCoords;
 
-  constructor(iBlock: number, iRow: number, iTile: number, pattern: any[]) {
-    this.coords = new BoardCoords(iBlock, iRow, iTile);
+  constructor(iBlockRow: number, iBlock: number, iRow: number, iTile: number, pattern: any[]) {
+    this.coords = new BoardCoords(iBlockRow, iBlock, iRow, iTile);
     this.pattern = pattern;
   }
 }
@@ -65,37 +68,40 @@ class CurrentlyDragged {
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.scss'],
-  // changeDetection: ChangeDetectionStrategy.OnPush
+  styleUrls: ['./app.component.scss']
 })
 export class AppComponent {
 
   currentlyDragged: CurrentlyDragged | undefined;
 
   shapeSet: Shape[] = [];
-  board: Tile[][][] = [];
+  board: Tile[][][][] = [];
+  flatBoard: Tile[] = [];
 
-  generatorBoard: Tile[][][] = [];
+  generatorBoard: Tile[][][][] = [];
 
   score: number = 0;
 
   readonly patterns = [
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, true), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, true), new Tile(0, 1, 1, false), new Tile(0, 1, 2, false)], [new Tile(0, 2, 0, true), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, true), new Tile(0, 0, 2, true)], [new Tile(0, 1, 0, false), new Tile(0, 1, 1, false), new Tile(0, 1, 2, false)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, false), new Tile(0, 0, 1, true), new Tile(0, 0, 2, true)], [new Tile(0, 1, 0, true), new Tile(0, 1, 1, true), new Tile(0, 1, 2, false)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, true), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, false), new Tile(0, 1, 1, true), new Tile(0, 1, 2, true)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, false), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, false), new Tile(0, 1, 1, true), new Tile(0, 1, 2, false)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, false), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, false), new Tile(0, 1, 1, true), new Tile(0, 1, 2, false)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, false), new Tile(0, 2, 2, true)]]],
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, true), new Tile(0, 0, 2, true)], [new Tile(0, 1, 0, false), new Tile(0, 1, 1, true), new Tile(0, 1, 2, false)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, true), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, true), new Tile(0, 0, 2, true)], [new Tile(0, 1, 0, true), new Tile(0, 1, 1, false), new Tile(0, 1, 2, true)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, false), new Tile(0, 0, 2, true)], [new Tile(0, 1, 0, true), new Tile(0, 1, 1, true), new Tile(0, 1, 2, true)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, false), new Tile(0, 0, 1, true), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, true), new Tile(0, 1, 1, true), new Tile(0, 1, 2, true)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, true), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, false), new Tile(0, 0, 1, true), new Tile(0, 0, 2, true)], [new Tile(0, 1, 0, false), new Tile(0, 1, 1, true), new Tile(0, 1, 2, true)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, true), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, true), new Tile(0, 1, 1, false), new Tile(0, 1, 2, false)], [new Tile(0, 2, 0, true), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
-    [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, false), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, true), new Tile(0, 1, 1, false), new Tile(0, 1, 2, false)], [new Tile(0, 2, 0, true), new Tile(0, 2, 1, false), new Tile(0, 2, 2, false)]]],
+    [
+      [
+        [
+          [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, true), new Tile(0, 0, 0, 2, true)],
+        ]
+      ]
+    ],
+    [
+      [
+        [
+          [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, true), new Tile(0, 0, 0, 2, false)],
+          [new Tile(0, 0, 1, 0, true), new Tile(0, 0, 1, 1, true), new Tile(0, 0, 1, 2, false)],
+        ]
+      ]
+    ],
   ];
 
-  readonly BOARD_BLOCK_LIMIT = 9;
+  readonly BOARD_BLOCK_ROW_LIMIT = 3;
+  readonly BOARD_BLOCK_LIMIT = 3;
   readonly BOARD_ROW_LIMIT = 3;
   readonly BOARD_TILE_LIMIT = 3;
 
@@ -104,12 +110,15 @@ export class AppComponent {
 
   get emptyBoard() {
     return Array.from(
-      { length: this.BOARD_BLOCK_LIMIT },
-      (el, iBlock) => Array.from(
-        { length: this.BOARD_ROW_LIMIT },
-        (el, iRow) => Array.from(
-          { length: this.BOARD_TILE_LIMIT },
-          (el, iTile) => new Tile(iBlock, iRow, iTile)
+      { length: this.BOARD_BLOCK_ROW_LIMIT },
+      (el, iBlockRow) => Array.from(
+        { length: this.BOARD_BLOCK_LIMIT },
+        (el, iBlock) => Array.from(
+          { length: this.BOARD_ROW_LIMIT },
+          (el, iRow) => Array.from(
+            { length: this.BOARD_TILE_LIMIT },
+            (el, iTile) => new Tile(iBlockRow, iBlock, iRow, iTile)
+          )
         )
       )
     );
@@ -151,11 +160,11 @@ export class AppComponent {
 
     if (shapeDataStr) {
       const shapeDataJson: any = JSON.parse(shapeDataStr);
-      const shapeData = new InsertShapeData(+shapeDataJson.startPoint[0], +shapeDataJson.startPoint[1], +shapeDataJson.startPoint[2], shapeDataJson.pattern);
+      const shapeData = new InsertShapeData(+shapeDataJson.startPoint[0], +shapeDataJson.startPoint[1], +shapeDataJson.startPoint[2], +shapeDataJson.startPoint[3], shapeDataJson.pattern);
 
       const dropCoordsArray: number[] = ($event.target as HTMLElement).id.split(';').slice(1).map(el => +el);
 
-      const dropCoords = new BoardCoords(dropCoordsArray[0], dropCoordsArray[1], dropCoordsArray[2]);
+      const dropCoords = new BoardCoords(dropCoordsArray[0], dropCoordsArray[1], dropCoordsArray[2], dropCoordsArray[3]);
 
       this.insertShape(shapeData, dropCoords);
     }
@@ -171,12 +180,12 @@ export class AppComponent {
         +this.currentlyDragged.startPoint[0],
         +this.currentlyDragged.startPoint[1],
         +this.currentlyDragged.startPoint[2],
+        +this.currentlyDragged.startPoint[3],
         this.currentlyDragged.pattern
       );
 
       const dropCoordsArray: number[] = ($event.target as HTMLElement).id.split(';').slice(1).map(el => +el);
-
-      const dropCoords = new BoardCoords(dropCoordsArray[0], dropCoordsArray[1], dropCoordsArray[2]);
+      const dropCoords = new BoardCoords(dropCoordsArray[0], dropCoordsArray[1], dropCoordsArray[2], dropCoordsArray[3]);
 
       this.projectShape(shapeData, dropCoords);
 
@@ -194,23 +203,23 @@ export class AppComponent {
   onDragEnd($event: MouseEvent, shape: Shape) {
     shape.isBeingDragged = false;
     shape.dragPoint = undefined;
+    this.runCleanProjection();
     delete this.currentlyDragged;
   }
 
   generateShape() {
     const shape = this.generatorBoard
-      .filter(x => x.some(y => y.some(z => z.isFilled)))
-      .map(x => x.map(y => y.map(z => `/new Tile(${z.coords.iBlock},${z.coords.iRow},${z.coords.iTile},${z.isFilled})/`)));
+      .filter(x => x.some(y => y.some(z => z.some(u => u.isFilled))))
+      .map(x => x.map(y => y.map(z => z.map(u => `/new Tile(${u.coords.iBlock},${u.coords.iRow},${u.coords.iTile},${u.isFilled})/`))));
 
     console.table(JSON.stringify(shape).replace(/\"/g, '').replace(/\//g, ''));
   }
 
   private insertShape(shapeData: InsertShapeData, dropCoords: BoardCoords) {
-    const flatBoard: Tile[] = _.flattenDeep(this.board);
-
     const dTile = dropCoords.iTile - shapeData.coords.iTile;
     const dRow = dropCoords.iRow - shapeData.coords.iRow;
     const dBlock = dropCoords.iBlock - shapeData.coords.iBlock;
+    const dBlockRow = dropCoords.iBlockRow - shapeData.coords.iBlockRow;
 
     // console.log(dTile)
     // console.log(dRow)
@@ -222,15 +231,13 @@ export class AppComponent {
     _.flattenDeep(shapeData.pattern).forEach((tile: Tile) => {
       this.applyTile(
         tile,
-        flatBoard,
-        dTile,
-        dRow,
+        dBlockRow,
         dBlock,
+        dRow,
+        dTile,
         (projectedTile: Tile) => projectedTile.isFilled = true
       );
     });
-
-    this.runCleanProjection();
 
     let matchedTiles: Tile[] = [];
 
@@ -244,11 +251,10 @@ export class AppComponent {
   }
 
   private projectShape(shapeData: InsertShapeData, dropCoords: BoardCoords) {
-    const flatBoard: Tile[] = _.flattenDeep(this.board);
-
     const dTile = dropCoords.iTile - shapeData.coords.iTile;
     const dRow = dropCoords.iRow - shapeData.coords.iRow;
     const dBlock = dropCoords.iBlock - shapeData.coords.iBlock;
+    const dBlockRow = dropCoords.iBlockRow - shapeData.coords.iBlockRow;
 
     // console.log(dTile)
     // console.log(dRow)
@@ -260,24 +266,26 @@ export class AppComponent {
     _.flattenDeep(shapeData.pattern).forEach((tile: Tile) => {
       this.applyTile(
         tile,
-        flatBoard,
-        dTile,
-        dRow,
+        dBlockRow,
         dBlock,
+        dRow,
+        dTile,
         (projectedTile: Tile) => projectedTile.isProjection = true
       );
     });
   }
 
   private runMathes(tileAction: Function, includeProjection: boolean = false) {
-    this.board.forEach(block => {
-      if (block.every(row => row.every(tile => tile.isFilled || (includeProjection && tile.isProjection)))) {
-        block.forEach((row => row.forEach(tile => tileAction(tile))))
+    this.board.forEach(blockRow => {
+      blockRow.forEach(block => {
+        if (block.every(row => row.every(tile => tile.isFilled || (includeProjection && tile.isProjection)))) {
+          block.forEach((row => row.forEach(tile => tileAction(tile))))
 
-        if (!includeProjection) {
-          this.score += this.BLOCK_SCORE;
+          if (!includeProjection) {
+            this.score += this.BLOCK_SCORE;
+          }
         }
-      }
+      });
     });
 
     const flatBoard: Tile[] = _.flattenDeep(this.board);
@@ -312,7 +320,7 @@ export class AppComponent {
     }
 
     const lines: Tile[][] = [...verticalLines, ...horizontalLines];
-    console.log(lines)
+    // console.log(lines)
 
     lines.forEach(line => {
       if (line.every(tile => tile.isFilled || (includeProjection && tile.isProjection))) {
@@ -326,70 +334,59 @@ export class AppComponent {
   }
 
   private runCleanProjection() {
-    const flatBoard: Tile[] = _.flattenDeep(this.board);
-    for (let i = 0; i < flatBoard.length; i++) {
-      flatBoard[i].isProjection = false;
-      flatBoard[i].isMatchPreview = false;
+    for (let i = 0; i < this.flatBoard.length; i++) {
+      this.flatBoard[i].isProjection = false;
+      this.flatBoard[i].isMatchPreview = false;
     }
   }
 
   private applyTile(
     tile: Tile,
-    flatBoard: Tile[],
-    dTile: number,
-    dRow: number,
+    dBlockRow: number,
     dBlock: number,
-    tileAction: Function
+    dRow: number,
+    dTile: number,
+    tileActionCallback: Function
   ) {
     if (!tile.isFilled) {
       return;
     }
 
-    let dxTile = tile.coords.iTile + dTile;
-    let dxRow = tile.coords.iRow + dRow;
+    let dxBlockRow = tile.coords.iBlockRow + dBlockRow;
     let dxBlock = tile.coords.iBlock + dBlock;
+    let dxRow = tile.coords.iRow + dRow;
+    let dxTile = tile.coords.iTile + dTile;
 
-    console.log('0-----0')
-    console.log(tile.coords)
-    console.log(dxTile)
-    console.log(dxRow)
-    
+    // console.log('0-----0')
+    // console.log(tile.coords)
+    // console.log({ dBlockRow, dBlock, dRow, dTile })
+    // console.log({ dxBlockRow, dxBlock, dxRow, dxTile })
 
     if (dxTile > this.BOARD_TILE_LIMIT - 1) {
       dxBlock += 1;
-      // if (dxBlock % 3 === 0) {
-      // } else {
-      //   dxBlock = 9;
-      // }
-
       dxTile = Math.abs(Math.abs(dxTile) - this.BOARD_TILE_LIMIT);
     } else if (dxTile < 0) {
       dxBlock -= 1;
-      // if (dxBlock % 3 != 0) {
-      // } else {
-      //   dxBlock = 9;
-      // }
-
       dxTile = this.BOARD_TILE_LIMIT - Math.abs(dxTile);
     }
 
     if (dxRow > this.BOARD_ROW_LIMIT - 1) {
-      dxBlock += 3;
+      dxBlockRow += 1;
       dxRow = Math.abs(Math.abs(dxRow) - this.BOARD_ROW_LIMIT);
     } else if (dxRow < 0) {
-      dxBlock -= 3;
+      dxBlockRow -= 1;
       dxRow = this.BOARD_ROW_LIMIT - Math.abs(dxRow);
     }
 
-    const dCoords = new BoardCoords(dxBlock, dxRow, dxTile);
+    const dCoords = new BoardCoords(dxBlockRow, dxBlock, dxRow, dxTile);
 
     // console.log(dCoords)
 
-    const tileInBoard = flatBoard.find(x => x.coords.stringValue === dCoords.stringValue);
+    const tileInBoard = this.flatBoard.find(x => x.coords.stringValue === dCoords.stringValue);
 
 
     if (!!tileInBoard) {
-      tileAction(tileInBoard);
+      tileActionCallback(tileInBoard);
     }
   }
 
@@ -399,6 +396,8 @@ export class AppComponent {
     // this.cdr.detectChanges();
 
     this.generatorBoard = this.emptyBoard;
+
+    this.flatBoard = _.flattenDeep(this.board);
   }
 
   private generateShapes() {
@@ -412,9 +411,15 @@ export class AppComponent {
     // shape.pattern = [[[new Tile(0,0,0,true),new Tile(0,0,1,true),new Tile(0,0,2,false)],[new Tile(0,1,0,true),new Tile(0,1,1,false),new Tile(0,1,2,false)],[new Tile(0,2,0,true),new Tile(0,2,1,false),new Tile(0,2,2,false)]]];
     // this.shapeSet.push(shape)
 
-    const shape2 = new Shape();
-    shape2.pattern = [[[new Tile(3, 0, 0, false), new Tile(3, 0, 1, false), new Tile(3, 0, 2, false)], [new Tile(3, 1, 0, false), new Tile(3, 1, 1, false), new Tile(3, 1, 2, true)], [new Tile(3, 2, 0, false), new Tile(3, 2, 1, false), new Tile(3, 2, 2, false)]], [[new Tile(4, 0, 0, false), new Tile(4, 0, 1, false), new Tile(4, 0, 2, false)], [new Tile(4, 1, 0, true), new Tile(4, 1, 1, false), new Tile(4, 1, 2, true)], [new Tile(4, 2, 0, true), new Tile(4, 2, 1, false), new Tile(4, 2, 2, true)]], [[new Tile(5, 0, 0, false), new Tile(5, 0, 1, false), new Tile(5, 0, 2, false)], [new Tile(5, 1, 0, true), new Tile(5, 1, 1, false), new Tile(5, 1, 2, false)], [new Tile(5, 2, 0, false), new Tile(5, 2, 1, false), new Tile(5, 2, 2, false)]], [[new Tile(7, 0, 0, true), new Tile(7, 0, 1, true), new Tile(7, 0, 2, true)], [new Tile(7, 1, 0, false), new Tile(7, 1, 1, false), new Tile(7, 1, 2, false)], [new Tile(7, 2, 0, false), new Tile(7, 2, 1, false), new Tile(7, 2, 2, false)]]];
-    this.shapeSet.push(shape2)
+    // const shape2 = new Shape();
+    // shape2.pattern = [
+    //   [
+    //     [new Tile(3, 0, 0, false), new Tile(3, 0, 1, false), new Tile(3, 0, 2, false)], 
+    //     [new Tile(3, 1, 0, false), new Tile(3, 1, 1, false), new Tile(3, 1, 2, true)], 
+    //     [new Tile(3, 2, 0, false), new Tile(3, 2, 1, false), new Tile(3, 2, 2, false)]
+    //   ], [[new Tile(4, 0, 0, false), new Tile(4, 0, 1, false), new Tile(4, 0, 2, false)], 
+    //   [new Tile(4, 1, 0, true), new Tile(4, 1, 1, false), new Tile(4, 1, 2, true)], [new Tile(4, 2, 0, true), new Tile(4, 2, 1, false), new Tile(4, 2, 2, true)]], [[new Tile(5, 0, 0, false), new Tile(5, 0, 1, false), new Tile(5, 0, 2, false)], [new Tile(5, 1, 0, true), new Tile(5, 1, 1, false), new Tile(5, 1, 2, false)], [new Tile(5, 2, 0, false), new Tile(5, 2, 1, false), new Tile(5, 2, 2, false)]], [[new Tile(7, 0, 0, true), new Tile(7, 0, 1, true), new Tile(7, 0, 2, true)], [new Tile(7, 1, 0, false), new Tile(7, 1, 1, false), new Tile(7, 1, 2, false)], [new Tile(7, 2, 0, false), new Tile(7, 2, 1, false), new Tile(7, 2, 2, false)]]];
+    // this.shapeSet.push(shape2)
 
     // const shape3 = new Shape();
     // shape3.pattern = [[[new Tile(0, 0, 0, false), new Tile(0, 0, 1, false), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, false), new Tile(0, 1, 1, false), new Tile(0, 1, 2, true)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, true), new Tile(0, 2, 2, true)]], [[new Tile(1, 0, 0, false), new Tile(1, 0, 1, false), new Tile(1, 0, 2, false)], [new Tile(1, 1, 0, true), new Tile(1, 1, 1, false), new Tile(1, 1, 2, true)], [new Tile(1, 2, 0, true), new Tile(1, 2, 1, true), new Tile(1, 2, 2, true)]], [[new Tile(2, 0, 0, false), new Tile(2, 0, 1, false), new Tile(2, 0, 2, false)], [new Tile(2, 1, 0, true), new Tile(2, 1, 1, false), new Tile(2, 1, 2, false)], [new Tile(2, 2, 0, true), new Tile(2, 2, 1, true), new Tile(2, 2, 2, false)]], [[new Tile(3, 0, 0, false), new Tile(3, 0, 1, true), new Tile(3, 0, 2, true)], [new Tile(3, 1, 0, false), new Tile(3, 1, 1, false), new Tile(3, 1, 2, true)], [new Tile(3, 2, 0, false), new Tile(3, 2, 1, false), new Tile(3, 2, 2, false)]], [[new Tile(4, 0, 0, true), new Tile(4, 0, 1, true), new Tile(4, 0, 2, true)], [new Tile(4, 1, 0, true), new Tile(4, 1, 1, true), new Tile(4, 1, 2, true)], [new Tile(4, 2, 0, true), new Tile(4, 2, 1, true), new Tile(4, 2, 2, true)]], [[new Tile(5, 0, 0, true), new Tile(5, 0, 1, true), new Tile(5, 0, 2, false)], [new Tile(5, 1, 0, true), new Tile(5, 1, 1, false), new Tile(5, 1, 2, false)], [new Tile(5, 2, 0, false), new Tile(5, 2, 1, false), new Tile(5, 2, 2, false)]], [[new Tile(7, 0, 0, false), new Tile(7, 0, 1, true), new Tile(7, 0, 2, false)], [new Tile(7, 1, 0, false), new Tile(7, 1, 1, false), new Tile(7, 1, 2, false)], [new Tile(7, 2, 0, false), new Tile(7, 2, 1, false), new Tile(7, 2, 2, false)]]];

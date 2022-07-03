@@ -7,8 +7,8 @@
 }
 
 .board {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    display: flex;
+    flex-direction: column;
 }
 
 .shape-set-wrapper {
@@ -55,10 +55,14 @@
     }
 }
 
+.block-row-tile {
+    display: flex;
+}
+
 .block-tile {
     border: 1px solid black;
-    display: grid;
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
 
     .inner-row {
         display: flex;
@@ -85,4 +89,3 @@
         }
     }
 }
-

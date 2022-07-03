@@ -4,19 +4,22 @@
   <div class="board"
        (drop)="onDrop($event)"
        (dragover)="onDragOver($event)">
-    <div *ngFor="let row of board; let iBlock = index"
-         class="block-tile">
-      <div *ngFor="let innerRow of row; let iRow = index"
-           class="inner-row">
-        <div *ngFor="let tile of innerRow; let iTile = index"
-             class="tile"
-             [id]="'board;' + iBlock + ';' + iRow + ';' + iTile"
-             [ngClass]="{
+    <div *ngFor="let blocksRow of board; let iBlockRow = index"
+         class="block-row-tile">
+      <div *ngFor="let row of blocksRow; let iBlock = index"
+           class="block-tile">
+        <div *ngFor="let innerRow of row; let iRow = index"
+             class="inner-row">
+          <div *ngFor="let tile of innerRow; let iTile = index"
+               class="tile"
+               [id]="'board;' + iBlockRow + ';' + iBlock + ';' + iRow + ';' + iTile"
+               [ngClass]="{
                 'filled': tile.isFilled,
                 'empty': !tile.isFilled,
                 'preview': tile.isProjection,
                 'match': tile.isMatchPreview
               }">
+          </div>
         </div>
       </div>
     </div>
@@ -33,18 +36,21 @@
          }"
          (dragend)="onDragEnd($event, shape)"
          (dragstart)="onDragStart($event, shape)">
-      <div *ngFor="let row of shape.pattern"
-           class="block-tile">
-        <div *ngFor="let innerRow of row"
-             class="inner-row">
-          <div *ngFor="let tile of innerRow"
-               class="tile"
-               (mousedown)="setStartPoint($event, shape)"
-               [id]="'shape-' + iShape + ';' + tile.coords.iBlock + ';' + tile.coords.iRow + ';' + tile.coords.iTile"
-               [ngClass]="{
+      <div *ngFor="let blockRow of shape.pattern"
+           class="block-row-tile">
+        <div *ngFor="let block of blockRow"
+             class="block-tile">
+          <div *ngFor="let row of block"
+               class="inner-row">
+            <div *ngFor="let tile of row"
+                 class="tile"
+                 (mousedown)="setStartPoint($event, shape)"
+                 [id]="'shape-' + iShape + ';' + tile.coords.iBlockRow + ';' + tile.coords.iBlock + ';' + tile.coords.iRow + ';' + tile.coords.iTile"
+                 [ngClass]="{
                 'filled': tile.isFilled,
                 'empty': !tile.isFilled
                }">
+            </div>
           </div>
         </div>
       </div>
@@ -52,7 +58,7 @@
   </div>
 </div>
 
-<div class="board-wrapper">
+<!-- <div class="board-wrapper">
   <div class="board">
     <div *ngFor="let row of generatorBoard; let iBlock = index"
          class="block-tile">
@@ -71,4 +77,4 @@
     </div>
   </div>
   <button (click)="generateShape()">Generate</button>
-</div>
+</div> -->
