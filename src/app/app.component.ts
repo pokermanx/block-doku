@@ -1,6 +1,10 @@
 import { Component, NgZone } from '@angular/core';
 import * as _ from 'lodash';
 
+import { BoardCoords, CurrentlyDragged, Size } from './shared/models/misc.model';
+import { InsertShapeData, Shape } from './shared/models/shape.model';
+import { Tile } from './shared/models/tile.model';
+
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
@@ -29,6 +33,30 @@ export class AppComponent {
         [
             [
                 [
+                    [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, true), new Tile(0, 0, 0, 2, true)],
+                ],
+                [
+                    [new Tile(0, 1, 0, 0, true), new Tile(0, 1, 0, 1, true), new Tile(0, 1, 0, 2, true)],
+                ]
+            ]
+        ],
+        [
+            [
+                [
+                    [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, false), new Tile(0, 0, 0, 2, false)],
+                    [new Tile(0, 0, 1, 0, true), new Tile(0, 0, 1, 1, false), new Tile(0, 0, 1, 2, false)],
+                    [new Tile(0, 0, 2, 0, true), new Tile(0, 0, 2, 1, false), new Tile(0, 0, 2, 2, false)],
+                ],
+                [
+                    [new Tile(0, 1, 0, 0, false), new Tile(0, 1, 0, 1, false), new Tile(0, 1, 0, 2, false)],
+                    [new Tile(0, 1, 1, 0, false), new Tile(0, 1, 1, 1, false), new Tile(0, 1, 1, 2, false)],
+                    [new Tile(0, 1, 2, 0, false), new Tile(0, 1, 2, 1, false), new Tile(0, 1, 2, 2, false)],
+                ],
+            ]
+        ],
+        [
+            [
+                [
                     [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, true), new Tile(0, 0, 0, 2, false)],
                     [new Tile(0, 0, 1, 0, true), new Tile(0, 0, 1, 1, true), new Tile(0, 0, 1, 2, false)],
                 ]
@@ -44,7 +72,7 @@ export class AppComponent {
     readonly LINE_SCORE = 9;
     readonly BLOCK_SCORE = 9;
 
-    get emptyBoard() {
+    get emptyBoard(): Tile[][][][] {
         return Array.from(
             { length: this.BOARD_BLOCK_ROW_LIMIT },
             (el, iBlockRow) => Array.from(
@@ -67,7 +95,7 @@ export class AppComponent {
         this.generateShapes();
     }
 
-    onDragStart($event: DragEvent, shape: Shape) {
+    onDragStart($event: DragEvent, shape: Shape): void {
         if (!shape.dragPoint) {
             $event.preventDefault();
             return;
@@ -80,7 +108,7 @@ export class AppComponent {
         };
     }
 
-    onDrop($event: DragEvent) {
+    onDrop($event: DragEvent): void {
         if (this.currentlyDragged) {
             const shapeData = new InsertShapeData(+this.currentlyDragged.startPoint[0], +this.currentlyDragged.startPoint[1], +this.currentlyDragged.startPoint[2], +this.currentlyDragged.startPoint[3], this.currentlyDragged.pattern, this.currentlyDragged.patternSize);
 
@@ -92,7 +120,7 @@ export class AppComponent {
         }
     }
 
-    onDragOver($event: DragEvent) {
+    onDragOver($event: DragEvent): void {
         $event.preventDefault();
 
         this.runCleanProjection();
@@ -116,19 +144,19 @@ export class AppComponent {
         }
     }
 
-    setStartPoint($event: MouseEvent, shape: Shape) {
+    setStartPoint($event: MouseEvent, shape: Shape): void {
         shape.isBeingDragged = true;
         shape.dragPoint = $event.target || undefined;
     }
 
-    onDragEnd($event: MouseEvent, shape: Shape) {
+    onDragEnd($event: MouseEvent, shape: Shape): void {
         shape.isBeingDragged = false;
         shape.dragPoint = undefined;
         this.runCleanProjection();
         delete this.currentlyDragged;
     }
 
-    generateShape() {
+    generateShape(): void {
         const shape = this.generatorBoard
             .filter(x => x.some(y => y.some(z => z.some(u => u.isFilled))))
             .map(x => x.map(y => y.map(z => z.map(u => `/new Tile(${u.coords.iBlock},${u.coords.iRow},${u.coords.iTile},${u.isFilled})/`))));
@@ -136,7 +164,7 @@ export class AppComponent {
         console.table(JSON.stringify(shape).replace(/\"/g, '').replace(/\//g, ''));
     }
 
-    private insertShape(shapeData: InsertShapeData, dropCoords: BoardCoords) {
+    private insertShape(shapeData: InsertShapeData, dropCoords: BoardCoords): void {
         const dTile = dropCoords.iTile - shapeData.coords.iTile;
         const dRow = dropCoords.iRow - shapeData.coords.iRow;
         const dBlock = dropCoords.iBlock - shapeData.coords.iBlock;
@@ -171,15 +199,15 @@ export class AppComponent {
         matchedTiles.forEach(tile => tile.isFilled = false);
     }
 
-    private projectShape(shapeData: InsertShapeData, dropCoords: BoardCoords) {
+    private projectShape(shapeData: InsertShapeData, dropCoords: BoardCoords): void {
         const dBlockRow = dropCoords.iBlockRow - shapeData.coords.iBlockRow;
         const dBlock = dropCoords.iBlock - shapeData.coords.iBlock;
         const dRow = dropCoords.iRow - shapeData.coords.iRow;
         const dTile = dropCoords.iTile - shapeData.coords.iTile;
 
         console.log({ dBlockRow, dBlock, dRow, dTile, })
-        console.log(shapeData)
-        console.log(dropCoords)
+        // console.log(shapeData)
+        // console.log(dropCoords)
 
         if (
             !this.checkShapeFits(
@@ -205,7 +233,7 @@ export class AppComponent {
         });
     }
 
-    private runMathes(tileAction: Function, includeProjection: boolean = false) {
+    private runMathes(tileAction: Function, includeProjection: boolean = false): void {
         this.board.forEach(blockRow => {
             blockRow.forEach(block => {
                 if (block.every(row => row.every(tile => tile.isFilled || (includeProjection && tile.isProjection)))) {
@@ -277,7 +305,7 @@ export class AppComponent {
         dRow: number,
         dTile: number,
         tileActionCallback: Function
-    ) {
+    ): void {
         if (!tile.isFilled) {
             return;
         }
@@ -320,7 +348,7 @@ export class AppComponent {
         }
     }
 
-    private createBoard() {
+    private createBoard(): void {
         this.board = this.emptyBoard;
         console.table(this.board)
 
@@ -329,7 +357,7 @@ export class AppComponent {
         this.flatBoard = _.flattenDeep(this.board);
     }
 
-    private generateShapes() {
+    private generateShapes(): void {
         this.shapeSet = this.patterns.map(pattern => {
             const shape = new Shape();
             shape.pattern = pattern;
@@ -363,7 +391,7 @@ export class AppComponent {
         // this.shapeSet.push(shape4)
     }
 
-    private calculatePatternSize(pattern: any[]) {
+    private calculatePatternSize(pattern: any[]): Size {
         const projection = this.emptyBoard;
 
         const flatPattern: any[] = _.flattenDeep(pattern);
@@ -409,12 +437,22 @@ export class AppComponent {
 
     private checkShapeFits(
         size: Size,
-        dBlock: number,
         dBlockRow: number,
+        dBlock: number,
         dRow: number,
         dTile: number
-    ) {
+    ): boolean {
         if ([dBlock, dBlockRow, dRow, dTile].some(delta => delta < 0)) {
+            return false;
+        }
+
+        const availableWidth = (this.BOARD_BLOCK_LIMIT * this.BOARD_TILE_LIMIT) - (dBlock * this.BOARD_TILE_LIMIT) - dTile;
+        if (size.width > availableWidth) {
+            return false;
+        }
+
+        const availableHeight = (this.BOARD_BLOCK_ROW_LIMIT * this.BOARD_ROW_LIMIT) - (dBlockRow * this.BOARD_ROW_LIMIT) - dRow;
+        if (size.height > availableHeight) {
             return false;
         }
 

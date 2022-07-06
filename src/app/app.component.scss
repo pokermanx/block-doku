@@ -27,11 +27,12 @@
 }
 
 .shape-set {
+    max-width: 100vw;
     margin-top: 40px;
     display: grid;
     width: 100%;
     padding: 0 100px;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: auto auto auto;
     grid-column-gap: 30px;
     grid-row-gap: 30px;
 
@@ -39,7 +40,7 @@
         width: max-content;
         height: max-content;
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: auto auto auto;
 
         .block-tile {
             border: 0px solid transparent !important;
