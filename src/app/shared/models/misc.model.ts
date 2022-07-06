@@ -29,3 +29,10 @@ export interface Size {
     width: number;
     height: number;
 }
+
+export interface DeltaCoords {
+    dBlockRow: number;
+    dBlock: number;
+    dRow: number;
+    dTile: number;
+}

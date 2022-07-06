@@ -1,7 +1,7 @@
 import { Component, NgZone } from '@angular/core';
 import * as _ from 'lodash';
 
-import { BoardCoords, CurrentlyDragged, Size } from './shared/models/misc.model';
+import { BoardCoords, CurrentlyDragged, DeltaCoords, Size } from './shared/models/misc.model';
 import { InsertShapeData, Shape } from './shared/models/shape.model';
 import { Tile } from './shared/models/tile.model';
 
@@ -140,7 +140,7 @@ export class AppComponent {
 
             this.projectShape(shapeData, dropCoords);
 
-            this.runMathes((tile: Tile) => tile.isMatchPreview = true, true);
+            // this.runMathes((tile: Tile) => tile.isMatchPreview = true, true);
         }
     }
 
@@ -165,36 +165,15 @@ export class AppComponent {
     }
 
     private insertShape(shapeData: InsertShapeData, dropCoords: BoardCoords): void {
-        const dTile = dropCoords.iTile - shapeData.coords.iTile;
-        const dRow = dropCoords.iRow - shapeData.coords.iRow;
-        const dBlock = dropCoords.iBlock - shapeData.coords.iBlock;
-        const dBlockRow = dropCoords.iBlockRow - shapeData.coords.iBlockRow;
-
-        // console.log(dTile)
-        // console.log(dRow)
-        // console.log(dBlock)
-
-        // console.log(shapeData.coords)
-        // console.log(dropCoords)
-
-        _.flattenDeep(shapeData.pattern).forEach((tile: Tile) => {
-            this.applyTile(
-                tile,
-                dBlockRow,
-                dBlock,
-                dRow,
-                dTile,
-                (projectedTile: Tile) => projectedTile.isFilled = true
-            );
-        });
+       this.applyShape();
 
         let matchedTiles: Tile[] = [];
 
-        this.runMathes((tile: Tile) => {
-            if (!matchedTiles.find(x => x.coords.stringValue === tile.coords.stringValue)) {
-                matchedTiles.push(tile);
-            }
-        });
+        // this.runMathes((tile: Tile) => {
+        //     if (!matchedTiles.find(x => x.coords.stringValue === tile.coords.stringValue)) {
+        //         matchedTiles.push(tile);
+        //     }
+        // });
 
         matchedTiles.forEach(tile => tile.isFilled = false);
     }
@@ -210,26 +189,27 @@ export class AppComponent {
         // console.log(dropCoords)
 
         if (
-            !this.checkShapeFits(
+            !this.checkShapeFitsInBoard(
                 shapeData.patternSize as Size,
-                dBlockRow,
-                dBlock,
-                dRow,
-                dTile
+                { dBlockRow, dBlock, dRow, dTile }
             )
         ) {
             return;
         }
 
+
         _.flattenDeep(shapeData.pattern).forEach((tile: Tile) => {
-            this.applyTile(
-                tile,
-                dBlockRow,
-                dBlock,
-                dRow,
-                dTile,
-                (projectedTile: Tile) => projectedTile.isProjection = true
-            );
+            if (!tile.isFilled) {
+                return;
+            }
+            const { dxBlockRow, dxBlock, dxRow, dxTile }: any = this.calculateTilePosition(tile, { dBlockRow, dBlock, dRow, dTile });
+            const dCoords = new BoardCoords(dxBlockRow, dxBlock, dxRow, dxTile);
+
+            const tileInBoard = this.flatBoard.find(x => x.coords.stringValue === dCoords.stringValue);
+
+            if (tileInBoard) {
+                tileInBoard.isProjection = true;
+            }
         });
     }
 
@@ -298,22 +278,19 @@ export class AppComponent {
         }
     }
 
-    private applyTile(
-        tile: Tile,
-        dBlockRow: number,
-        dBlock: number,
-        dRow: number,
-        dTile: number,
-        tileActionCallback: Function
-    ): void {
-        if (!tile.isFilled) {
-            return;
-        }
+    private applyShape(): void {
+        this.flatBoard.forEach(tile => {
+            if (tile.isProjection) {
+                tile.isFilled = true;
+            }
+        })
+    }
 
-        let dxBlockRow = tile.coords.iBlockRow + dBlockRow;
-        let dxBlock = tile.coords.iBlock + dBlock;
-        let dxRow = tile.coords.iRow + dRow;
-        let dxTile = tile.coords.iTile + dTile;
+    private calculateTilePosition(tile: Tile, deltaCoords: DeltaCoords) {
+        let dxBlockRow = tile.coords.iBlockRow + deltaCoords.dBlockRow;
+        let dxBlock = tile.coords.iBlock + deltaCoords.dBlock;
+        let dxRow = tile.coords.iRow + deltaCoords.dRow;
+        let dxTile = tile.coords.iTile + deltaCoords.dTile;
 
         // console.log('0-----0')
         // console.log(tile.coords)
@@ -336,16 +313,7 @@ export class AppComponent {
             dxRow = this.BOARD_ROW_LIMIT - Math.abs(dxRow);
         }
 
-        const dCoords = new BoardCoords(dxBlockRow, dxBlock, dxRow, dxTile);
-
-        // console.log(dCoords)
-
-        const tileInBoard = this.flatBoard.find(x => x.coords.stringValue === dCoords.stringValue);
-
-
-        if (!!tileInBoard) {
-            tileActionCallback(tileInBoard);
-        }
+        return { dxBlockRow, dxBlock, dxRow, dxTile };
     }
 
     private createBoard(): void {
@@ -435,23 +403,24 @@ export class AppComponent {
         };
     }
 
-    private checkShapeFits(
+    private checkShapeFitsInBoard(
         size: Size,
-        dBlockRow: number,
-        dBlock: number,
-        dRow: number,
-        dTile: number
+        deltaCoords: DeltaCoords
     ): boolean {
-        if ([dBlock, dBlockRow, dRow, dTile].some(delta => delta < 0)) {
+        if (deltaCoords.dBlock < 0 || (deltaCoords.dTile < 0 && deltaCoords.dBlock === 0)) {
             return false;
         }
 
-        const availableWidth = (this.BOARD_BLOCK_LIMIT * this.BOARD_TILE_LIMIT) - (dBlock * this.BOARD_TILE_LIMIT) - dTile;
+        if (deltaCoords.dBlockRow < 0 || (deltaCoords.dRow < 0 && deltaCoords.dBlockRow === 0)) {
+            return false;
+        }
+
+        const availableWidth = (this.BOARD_BLOCK_LIMIT * this.BOARD_TILE_LIMIT) - (deltaCoords.dBlock * this.BOARD_TILE_LIMIT) - deltaCoords.dTile;
         if (size.width > availableWidth) {
             return false;
         }
 
-        const availableHeight = (this.BOARD_BLOCK_ROW_LIMIT * this.BOARD_ROW_LIMIT) - (dBlockRow * this.BOARD_ROW_LIMIT) - dRow;
+        const availableHeight = (this.BOARD_BLOCK_ROW_LIMIT * this.BOARD_ROW_LIMIT) - (deltaCoords.dBlockRow * this.BOARD_ROW_LIMIT) - deltaCoords.dRow;
         if (size.height > availableHeight) {
             return false;
         }
