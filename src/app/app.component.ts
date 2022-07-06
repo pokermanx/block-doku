@@ -165,7 +165,7 @@ export class AppComponent {
     }
 
     private insertShape(shapeData: InsertShapeData, dropCoords: BoardCoords): void {
-       this.applyShape();
+        this.applyShape();
 
         let matchedTiles: Tile[] = [];
 
@@ -189,7 +189,7 @@ export class AppComponent {
         // console.log(dropCoords)
 
         if (
-            !this.checkShapeFitsInBoard(
+            !this.shapeFitsInBoard(
                 shapeData.patternSize as Size,
                 { dBlockRow, dBlock, dRow, dTile }
             )
@@ -197,20 +197,24 @@ export class AppComponent {
             return;
         }
 
+        const toProjectTiles = _.flattenDeep(shapeData.pattern)
+            .map((tile: Tile) => {
+                if (!tile.isFilled) {
+                    return;
+                }
 
-        _.flattenDeep(shapeData.pattern).forEach((tile: Tile) => {
-            if (!tile.isFilled) {
-                return;
-            }
-            const { dxBlockRow, dxBlock, dxRow, dxTile }: any = this.calculateTilePosition(tile, { dBlockRow, dBlock, dRow, dTile });
-            const dCoords = new BoardCoords(dxBlockRow, dxBlock, dxRow, dxTile);
+                const { dxBlockRow, dxBlock, dxRow, dxTile }: any = this.calculateTilePosition(tile, { dBlockRow, dBlock, dRow, dTile });
+                const dCoords = new BoardCoords(dxBlockRow, dxBlock, dxRow, dxTile);
 
-            const tileInBoard = this.flatBoard.find(x => x.coords.stringValue === dCoords.stringValue);
+                return this.flatBoard.find(x => x.coords.stringValue === dCoords.stringValue);
+            })
+            .filter(x => !!x) as Tile[];
 
-            if (tileInBoard) {
-                tileInBoard.isProjection = true;
-            }
-        });
+        if (toProjectTiles.some(x => x.isFilled)) {
+            return;
+        }
+
+        toProjectTiles.forEach(tile => tile.isProjection = true);
     }
 
     private runMathes(tileAction: Function, includeProjection: boolean = false): void {
@@ -403,7 +407,7 @@ export class AppComponent {
         };
     }
 
-    private checkShapeFitsInBoard(
+    private shapeFitsInBoard(
         size: Size,
         deltaCoords: DeltaCoords
     ): boolean {
