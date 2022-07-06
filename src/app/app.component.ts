@@ -1,4 +1,4 @@
-import { Component, NgZone } from '@angular/core';
+import { Component } from '@angular/core';
 import * as _ from 'lodash';
 
 import { BoardCoords, CurrentlyDragged, DeltaCoords, Size } from './shared/models/misc.model';
@@ -69,8 +69,14 @@ export class AppComponent {
     readonly BOARD_ROW_LIMIT = 3;
     readonly BOARD_TILE_LIMIT = 3;
 
-    readonly LINE_SCORE = 9;
-    readonly BLOCK_SCORE = 9;
+    readonly TILE_SCORE = 5;
+
+    get boardTileHeight(): number {
+        return this.BOARD_BLOCK_ROW_LIMIT * this.BOARD_ROW_LIMIT;
+    }
+    get boardTileWidth(): number {
+        return this.BOARD_BLOCK_LIMIT * this.BOARD_TILE_LIMIT;
+    }
 
     get emptyBoard(): Tile[][][][] {
         return Array.from(
@@ -88,9 +94,67 @@ export class AppComponent {
         );
     }
 
-    constructor(
-        private zone: NgZone,
-    ) {
+    // This looks like a better approach to making rows and columns 
+    // that I once came up with but I can`t really remember
+    // what logic was I following so it`s here for the better day
+    /*
+        for (let i = 0; i < this.flatBoard.length; i++) {
+            let horizontalIndexOffset = 0;
+            if (this.flatBoard[i].coords.iBlock <= 2) {
+                horizontalIndexOffset = 0;
+            } else if (this.flatBoard[i].coords.iBlock <= 5) {
+                horizontalIndexOffset = 3;
+            } else {
+                horizontalIndexOffset = 6;
+            }
+    
+            const iHorizontal = horizontalIndexOffset + this.flatBoard[i].coords.iRow;
+            horizontalLines[iHorizontal].push(this.flatBoard[i]);
+    
+            let verticalIndexOffset = 0;
+            if (this.flatBoard[i].coords.iBlock % 3 === 0) {
+                verticalIndexOffset = 0;
+            } else if (this.flatBoard[i].coords.iBlock % 3 === 1) {
+                verticalIndexOffset = 3;
+            } else {
+                verticalIndexOffset = 6;
+            }
+    
+            const iVertical = verticalIndexOffset + this.flatBoard[i].coords.iTile;
+            verticalLines[iVertical].push(this.flatBoard[i]);
+        }
+    */
+
+    private get boardsRows(): Tile[][] {
+        return _.flatten(this.board.map(blockRow => {
+            const rows: Tile[][] = [];
+
+            for (let rowI = 0; rowI < this.BOARD_ROW_LIMIT; rowI++) {
+                blockRow.map(block => {
+                    if (!rows[rowI]) {
+                        rows[rowI] = [];
+                    }
+
+                    rows[rowI] = rows[rowI].concat(block[rowI]);
+                });
+            }
+
+            return rows;
+        }));
+    }
+
+    private get boardsColumns(): Tile[][] {
+        const columns: Tile[][] = [];
+        const rows = this.boardsRows;
+
+        for (let columnI = 0; columnI < this.boardTileHeight; columnI++) {
+            columns[columnI] = rows.map(row => row[columnI]);
+        }
+
+        return columns;
+    }
+
+    constructor() {
         this.createBoard();
         this.generateShapes();
     }
@@ -110,13 +174,7 @@ export class AppComponent {
 
     onDrop($event: DragEvent): void {
         if (this.currentlyDragged) {
-            const shapeData = new InsertShapeData(+this.currentlyDragged.startPoint[0], +this.currentlyDragged.startPoint[1], +this.currentlyDragged.startPoint[2], +this.currentlyDragged.startPoint[3], this.currentlyDragged.pattern, this.currentlyDragged.patternSize);
-
-            const dropCoordsArray: number[] = ($event.target as HTMLElement).id.split(';').slice(1).map(el => +el);
-
-            const dropCoords = new BoardCoords(dropCoordsArray[0], dropCoordsArray[1], dropCoordsArray[2], dropCoordsArray[3]);
-
-            this.insertShape(shapeData, dropCoords);
+            this.insertShape();
         }
     }
 
@@ -140,7 +198,7 @@ export class AppComponent {
 
             this.projectShape(shapeData, dropCoords);
 
-            // this.runMathes((tile: Tile) => tile.isMatchPreview = true, true);
+            this.runMathes();
         }
     }
 
@@ -164,18 +222,9 @@ export class AppComponent {
         console.table(JSON.stringify(shape).replace(/\"/g, '').replace(/\//g, ''));
     }
 
-    private insertShape(shapeData: InsertShapeData, dropCoords: BoardCoords): void {
+    private insertShape(): void {
         this.applyShape();
-
-        let matchedTiles: Tile[] = [];
-
-        // this.runMathes((tile: Tile) => {
-        //     if (!matchedTiles.find(x => x.coords.stringValue === tile.coords.stringValue)) {
-        //         matchedTiles.push(tile);
-        //     }
-        // });
-
-        matchedTiles.forEach(tile => tile.isFilled = false);
+        this.applyMatches();
     }
 
     private projectShape(shapeData: InsertShapeData, dropCoords: BoardCoords): void {
@@ -183,10 +232,6 @@ export class AppComponent {
         const dBlock = dropCoords.iBlock - shapeData.coords.iBlock;
         const dRow = dropCoords.iRow - shapeData.coords.iRow;
         const dTile = dropCoords.iTile - shapeData.coords.iTile;
-
-        console.log({ dBlockRow, dBlock, dRow, dTile, })
-        // console.log(shapeData)
-        // console.log(dropCoords)
 
         if (
             !this.shapeFitsInBoard(
@@ -217,60 +262,20 @@ export class AppComponent {
         toProjectTiles.forEach(tile => tile.isProjection = true);
     }
 
-    private runMathes(tileAction: Function, includeProjection: boolean = false): void {
+    private runMathes(): void {
         this.board.forEach(blockRow => {
             blockRow.forEach(block => {
-                if (block.every(row => row.every(tile => tile.isFilled || (includeProjection && tile.isProjection)))) {
-                    block.forEach((row => row.forEach(tile => tileAction(tile))))
-
-                    if (!includeProjection) {
-                        this.score += this.BLOCK_SCORE;
-                    }
+                if (block.every(row => row.every(tile => tile.isFilled || tile.isProjection))) {
+                    block.forEach((row => row.forEach(tile => tile.isMatch = true)))
                 }
             });
         });
 
-        const flatBoard: Tile[] = _.flattenDeep(this.board);
-
-        const horizontalLines: Tile[][] = Array.from({ length: 9 }, () => []);
-        const verticalLines: Tile[][] = Array.from({ length: 9 }, () => []);
-
-        for (let i = 0; i < flatBoard.length; i++) {
-            let horizontalIndexOffset = 0;
-            if (flatBoard[i].coords.iBlock <= 2) {
-                horizontalIndexOffset = 0;
-            } else if (flatBoard[i].coords.iBlock <= 5) {
-                horizontalIndexOffset = 3;
-            } else {
-                horizontalIndexOffset = 6;
-            }
-
-            const iHorizontal = horizontalIndexOffset + flatBoard[i].coords.iRow;
-            horizontalLines[iHorizontal].push(flatBoard[i]);
-
-            let verticalIndexOffset = 0;
-            if (flatBoard[i].coords.iBlock % 3 === 0) {
-                verticalIndexOffset = 0;
-            } else if (flatBoard[i].coords.iBlock % 3 === 1) {
-                verticalIndexOffset = 3;
-            } else {
-                verticalIndexOffset = 6;
-            }
-
-            const iVertical = verticalIndexOffset + flatBoard[i].coords.iTile;
-            verticalLines[iVertical].push(flatBoard[i]);
-        }
-
-        const lines: Tile[][] = [...verticalLines, ...horizontalLines];
-        // console.log(lines)
+        const lines: Tile[][] = [...this.boardsRows, ...this.boardsColumns];
 
         lines.forEach(line => {
-            if (line.every(tile => tile.isFilled || (includeProjection && tile.isProjection))) {
-                line.forEach(tile => tileAction(tile));
-
-                if (!includeProjection) {
-                    this.score += this.LINE_SCORE;
-                }
+            if (line.every(tile => tile.isFilled || tile.isProjection)) {
+                line.forEach(tile => tile.isMatch = true);
             }
         });
     }
@@ -278,7 +283,7 @@ export class AppComponent {
     private runCleanProjection() {
         for (let i = 0; i < this.flatBoard.length; i++) {
             this.flatBoard[i].isProjection = false;
-            this.flatBoard[i].isMatchPreview = false;
+            this.flatBoard[i].isMatch = false;
         }
     }
 
@@ -287,7 +292,17 @@ export class AppComponent {
             if (tile.isProjection) {
                 tile.isFilled = true;
             }
-        })
+        });
+    }
+
+    private applyMatches(): void {
+        const matches = this.flatBoard.filter(x => x.isMatch);
+
+        const multiplier = matches.length / 9;
+
+        this.score += matches.length * multiplier * this.TILE_SCORE;
+
+        matches.forEach(match => match.isFilled = false);
     }
 
     private calculateTilePosition(tile: Tile, deltaCoords: DeltaCoords) {
@@ -295,11 +310,6 @@ export class AppComponent {
         let dxBlock = tile.coords.iBlock + deltaCoords.dBlock;
         let dxRow = tile.coords.iRow + deltaCoords.dRow;
         let dxTile = tile.coords.iTile + deltaCoords.dTile;
-
-        // console.log('0-----0')
-        // console.log(tile.coords)
-        // console.log({ dBlockRow, dBlock, dRow, dTile })
-        // console.log({ dxBlockRow, dxBlock, dxRow, dxTile })
 
         if (dxTile > this.BOARD_TILE_LIMIT - 1) {
             dxBlock += 1;
@@ -336,31 +346,6 @@ export class AppComponent {
             shape.patternSize = this.calculatePatternSize(pattern);
             return shape;
         });
-
-        console.log(this.shapeSet)
-
-        // const shape = new Shape();
-        // // shape.pattern = Array.from({ length: 1 }, (el, iBlock) => Array.from({ length: 2 }, (el, iRow) => Array.from({ length: 2 }, (el, iTile) => new Tile(iBlock, iRow, iTile, true))));
-        // shape.pattern = [[[new Tile(0,0,0,true),new Tile(0,0,1,true),new Tile(0,0,2,false)],[new Tile(0,1,0,true),new Tile(0,1,1,false),new Tile(0,1,2,false)],[new Tile(0,2,0,true),new Tile(0,2,1,false),new Tile(0,2,2,false)]]];
-        // this.shapeSet.push(shape)
-
-        // const shape2 = new Shape();
-        // shape2.pattern = [
-        //   [
-        //     [new Tile(3, 0, 0, false), new Tile(3, 0, 1, false), new Tile(3, 0, 2, false)], 
-        //     [new Tile(3, 1, 0, false), new Tile(3, 1, 1, false), new Tile(3, 1, 2, true)], 
-        //     [new Tile(3, 2, 0, false), new Tile(3, 2, 1, false), new Tile(3, 2, 2, false)]
-        //   ], [[new Tile(4, 0, 0, false), new Tile(4, 0, 1, false), new Tile(4, 0, 2, false)], 
-        //   [new Tile(4, 1, 0, true), new Tile(4, 1, 1, false), new Tile(4, 1, 2, true)], [new Tile(4, 2, 0, true), new Tile(4, 2, 1, false), new Tile(4, 2, 2, true)]], [[new Tile(5, 0, 0, false), new Tile(5, 0, 1, false), new Tile(5, 0, 2, false)], [new Tile(5, 1, 0, true), new Tile(5, 1, 1, false), new Tile(5, 1, 2, false)], [new Tile(5, 2, 0, false), new Tile(5, 2, 1, false), new Tile(5, 2, 2, false)]], [[new Tile(7, 0, 0, true), new Tile(7, 0, 1, true), new Tile(7, 0, 2, true)], [new Tile(7, 1, 0, false), new Tile(7, 1, 1, false), new Tile(7, 1, 2, false)], [new Tile(7, 2, 0, false), new Tile(7, 2, 1, false), new Tile(7, 2, 2, false)]]];
-        // this.shapeSet.push(shape2)
-
-        // const shape3 = new Shape();
-        // shape3.pattern = [[[new Tile(0, 0, 0, false), new Tile(0, 0, 1, false), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, false), new Tile(0, 1, 1, false), new Tile(0, 1, 2, true)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, true), new Tile(0, 2, 2, true)]], [[new Tile(1, 0, 0, false), new Tile(1, 0, 1, false), new Tile(1, 0, 2, false)], [new Tile(1, 1, 0, true), new Tile(1, 1, 1, false), new Tile(1, 1, 2, true)], [new Tile(1, 2, 0, true), new Tile(1, 2, 1, true), new Tile(1, 2, 2, true)]], [[new Tile(2, 0, 0, false), new Tile(2, 0, 1, false), new Tile(2, 0, 2, false)], [new Tile(2, 1, 0, true), new Tile(2, 1, 1, false), new Tile(2, 1, 2, false)], [new Tile(2, 2, 0, true), new Tile(2, 2, 1, true), new Tile(2, 2, 2, false)]], [[new Tile(3, 0, 0, false), new Tile(3, 0, 1, true), new Tile(3, 0, 2, true)], [new Tile(3, 1, 0, false), new Tile(3, 1, 1, false), new Tile(3, 1, 2, true)], [new Tile(3, 2, 0, false), new Tile(3, 2, 1, false), new Tile(3, 2, 2, false)]], [[new Tile(4, 0, 0, true), new Tile(4, 0, 1, true), new Tile(4, 0, 2, true)], [new Tile(4, 1, 0, true), new Tile(4, 1, 1, true), new Tile(4, 1, 2, true)], [new Tile(4, 2, 0, true), new Tile(4, 2, 1, true), new Tile(4, 2, 2, true)]], [[new Tile(5, 0, 0, true), new Tile(5, 0, 1, true), new Tile(5, 0, 2, false)], [new Tile(5, 1, 0, true), new Tile(5, 1, 1, false), new Tile(5, 1, 2, false)], [new Tile(5, 2, 0, false), new Tile(5, 2, 1, false), new Tile(5, 2, 2, false)]], [[new Tile(7, 0, 0, false), new Tile(7, 0, 1, true), new Tile(7, 0, 2, false)], [new Tile(7, 1, 0, false), new Tile(7, 1, 1, false), new Tile(7, 1, 2, false)], [new Tile(7, 2, 0, false), new Tile(7, 2, 1, false), new Tile(7, 2, 2, false)]]];
-        // this.shapeSet.push(shape3)
-
-        // const shape4 = new Shape();
-        // shape4.pattern = [[[new Tile(0, 0, 0, true), new Tile(0, 0, 1, true), new Tile(0, 0, 2, false)], [new Tile(0, 1, 0, false), new Tile(0, 1, 1, false), new Tile(0, 1, 2, true)], [new Tile(0, 2, 0, false), new Tile(0, 2, 1, false), new Tile(0, 2, 2, true)]], [[new Tile(1, 0, 0, false), new Tile(1, 0, 1, true), new Tile(1, 0, 2, false)], [new Tile(1, 1, 0, true), new Tile(1, 1, 1, false), new Tile(1, 1, 2, true)], [new Tile(1, 2, 0, false), new Tile(1, 2, 1, true), new Tile(1, 2, 2, false)]], [[new Tile(2, 0, 0, false), new Tile(2, 0, 1, true), new Tile(2, 0, 2, true)], [new Tile(2, 1, 0, true), new Tile(2, 1, 1, false), new Tile(2, 1, 2, false)], [new Tile(2, 2, 0, true), new Tile(2, 2, 1, false), new Tile(2, 2, 2, false)]], [[new Tile(3, 0, 0, false), new Tile(3, 0, 1, true), new Tile(3, 0, 2, true)], [new Tile(3, 1, 0, true), new Tile(3, 1, 1, true), new Tile(3, 1, 2, false)], [new Tile(3, 2, 0, true), new Tile(3, 2, 1, false), new Tile(3, 2, 2, true)]], [[new Tile(4, 0, 0, false), new Tile(4, 0, 1, false), new Tile(4, 0, 2, false)], [new Tile(4, 1, 0, true), new Tile(4, 1, 1, true), new Tile(4, 1, 2, true)], [new Tile(4, 2, 0, false), new Tile(4, 2, 1, true), new Tile(4, 2, 2, false)]], [[new Tile(5, 0, 0, true), new Tile(5, 0, 1, true), new Tile(5, 0, 2, false)], [new Tile(5, 1, 0, false), new Tile(5, 1, 1, true), new Tile(5, 1, 2, true)], [new Tile(5, 2, 0, true), new Tile(5, 2, 1, false), new Tile(5, 2, 2, true)]], [[new Tile(6, 0, 0, true), new Tile(6, 0, 1, false), new Tile(6, 0, 2, false)], [new Tile(6, 1, 0, true), new Tile(6, 1, 1, true), new Tile(6, 1, 2, true)], [new Tile(6, 2, 0, false), new Tile(6, 2, 1, false), new Tile(6, 2, 2, true)]], [[new Tile(7, 0, 0, true), new Tile(7, 0, 1, false), new Tile(7, 0, 2, true)], [new Tile(7, 1, 0, false), new Tile(7, 1, 1, true), new Tile(7, 1, 2, false)], [new Tile(7, 2, 0, true), new Tile(7, 2, 1, true), new Tile(7, 2, 2, true)]], [[new Tile(8, 0, 0, false), new Tile(8, 0, 1, false), new Tile(8, 0, 2, true)], [new Tile(8, 1, 0, true), new Tile(8, 1, 1, true), new Tile(8, 1, 2, true)], [new Tile(8, 2, 0, true), new Tile(8, 2, 1, false), new Tile(8, 2, 2, false)]]];
-        // this.shapeSet.push(shape4)
     }
 
     private calculatePatternSize(pattern: any[]): Size {
@@ -395,9 +380,7 @@ export class AppComponent {
 
         const mappedColumns: boolean[][] = [];
 
-        const boardTileHeight = this.BOARD_BLOCK_ROW_LIMIT * this.BOARD_ROW_LIMIT;
-
-        for (let columnI = 0; columnI < boardTileHeight; columnI++) {
+        for (let columnI = 0; columnI < this.boardTileHeight; columnI++) {
             mappedColumns[columnI] = mappedRows.map(row => row[columnI]);
         }
 
@@ -419,12 +402,12 @@ export class AppComponent {
             return false;
         }
 
-        const availableWidth = (this.BOARD_BLOCK_LIMIT * this.BOARD_TILE_LIMIT) - (deltaCoords.dBlock * this.BOARD_TILE_LIMIT) - deltaCoords.dTile;
+        const availableWidth = this.boardTileWidth - (deltaCoords.dBlock * this.BOARD_TILE_LIMIT) - deltaCoords.dTile;
         if (size.width > availableWidth) {
             return false;
         }
 
-        const availableHeight = (this.BOARD_BLOCK_ROW_LIMIT * this.BOARD_ROW_LIMIT) - (deltaCoords.dBlockRow * this.BOARD_ROW_LIMIT) - deltaCoords.dRow;
+        const availableHeight = this.boardTileHeight - (deltaCoords.dBlockRow * this.BOARD_ROW_LIMIT) - deltaCoords.dRow;
         if (size.height > availableHeight) {
             return false;
         }
