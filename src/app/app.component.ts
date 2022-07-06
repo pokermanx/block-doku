@@ -12,13 +12,14 @@ import { Tile } from './shared/models/tile.model';
 })
 export class AppComponent {
 
-    currentlyDragged: CurrentlyDragged | undefined;
-
-    shapeSet: Shape[] = [];
     board: Tile[][][][] = [];
     flatBoard: Tile[] = [];
 
+    shapeSet: Shape[] = [];
+
     generatorBoard: Tile[][][][] = [];
+
+    currentlyDragged: CurrentlyDragged | undefined;
 
     score: number = 0;
 
@@ -46,11 +47,6 @@ export class AppComponent {
                     [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, false), new Tile(0, 0, 0, 2, false)],
                     [new Tile(0, 0, 1, 0, true), new Tile(0, 0, 1, 1, false), new Tile(0, 0, 1, 2, false)],
                     [new Tile(0, 0, 2, 0, true), new Tile(0, 0, 2, 1, false), new Tile(0, 0, 2, 2, false)],
-                ],
-                [
-                    [new Tile(0, 1, 0, 0, false), new Tile(0, 1, 0, 1, false), new Tile(0, 1, 0, 2, false)],
-                    [new Tile(0, 1, 1, 0, false), new Tile(0, 1, 1, 1, false), new Tile(0, 1, 1, 2, false)],
-                    [new Tile(0, 1, 2, 0, false), new Tile(0, 1, 2, 1, false), new Tile(0, 1, 2, 2, false)],
                 ],
             ]
         ],
@@ -126,32 +122,11 @@ export class AppComponent {
     */
 
     private get boardsRows(): Tile[][] {
-        return _.flatten(this.board.map(blockRow => {
-            const rows: Tile[][] = [];
-
-            for (let rowI = 0; rowI < this.BOARD_ROW_LIMIT; rowI++) {
-                blockRow.map(block => {
-                    if (!rows[rowI]) {
-                        rows[rowI] = [];
-                    }
-
-                    rows[rowI] = rows[rowI].concat(block[rowI]);
-                });
-            }
-
-            return rows;
-        }));
+        return this.separateByRows(this.board);
     }
 
     private get boardsColumns(): Tile[][] {
-        const columns: Tile[][] = [];
-        const rows = this.boardsRows;
-
-        for (let columnI = 0; columnI < this.boardTileHeight; columnI++) {
-            columns[columnI] = rows.map(row => row[columnI]);
-        }
-
-        return columns;
+        return this.separateByColumns(this.board);
     }
 
     constructor() {
@@ -340,12 +315,8 @@ export class AppComponent {
     }
 
     private generateShapes(): void {
-        this.shapeSet = this.patterns.map(pattern => {
-            const shape = new Shape();
-            shape.pattern = pattern;
-            shape.patternSize = this.calculatePatternSize(pattern);
-            return shape;
-        });
+        this.shapeSet = this.patterns.map(pattern => new Shape(pattern, this.calculatePatternSize(pattern)));
+        console.log(this.shapeSet)
     }
 
     private calculatePatternSize(pattern: any[]): Size {
@@ -361,33 +332,42 @@ export class AppComponent {
             }
         });
 
-        const mappedRows = _.flatten(projection
-            .map(blockRow => {
-                const rows: boolean[][] = [];
-
-                for (let rowI = 0; rowI < this.BOARD_ROW_LIMIT; rowI++) {
-                    blockRow.map(block => {
-                        if (!rows[rowI]) {
-                            rows[rowI] = [];
-                        }
-
-                        rows[rowI] = rows[rowI].concat(block[rowI].map(el => el.isFilled));
-                    });
-                }
-
-                return rows;
-            }));
-
-        const mappedColumns: boolean[][] = [];
-
-        for (let columnI = 0; columnI < this.boardTileHeight; columnI++) {
-            mappedColumns[columnI] = mappedRows.map(row => row[columnI]);
-        }
+        const mappedRows = this.separateByRows(projection).map(row => row.map(tile => tile.isFilled));
+        const mappedColumns = this.separateByColumns(projection).map(column => column.map(tile => tile.isFilled));
 
         return {
             width: Math.max(...mappedRows.map(row => row.lastIndexOf(true) + 1)),
             height: Math.max(...mappedColumns.map(row => row.lastIndexOf(true) + 1)),
         };
+    }
+
+    private separateByRows(board: Tile[][][][]) {
+        return _.flatten(board.map(blockRow => {
+            const rows: Tile[][] = [];
+
+            for (let rowI = 0; rowI < this.BOARD_ROW_LIMIT; rowI++) {
+                blockRow.map(block => {
+                    if (!rows[rowI]) {
+                        rows[rowI] = [];
+                    }
+
+                    rows[rowI] = rows[rowI].concat(block[rowI]);
+                });
+            }
+
+            return rows;
+        }));
+    }
+
+    private separateByColumns(board: Tile[][][][]) {
+        const columns: Tile[][] = [];
+        const rows = this.separateByRows(board);
+
+        for (let columnI = 0; columnI < this.boardTileHeight; columnI++) {
+            columns[columnI] = rows.map(row => row[columnI]);
+        }
+
+        return columns;
     }
 
     private shapeFitsInBoard(

@@ -6,6 +6,11 @@ export class Shape {
     dragPoint?: any;
 
     patternSize?: Size;
+
+    constructor(pattern: any[], patternSize: Size) {
+        this.pattern = pattern;
+        this.patternSize = patternSize;
+    }
 }
 
 export class InsertShapeData {
