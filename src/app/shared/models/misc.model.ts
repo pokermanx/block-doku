@@ -4,9 +4,6 @@ export class BoardCoords {
     iRow: number = 0;
     iTile: number = 0;
 
-    get stringValue() {
-        return `${this.iBlockRow};${this.iBlock};${this.iRow};${this.iTile}`;
-    }
     get numberValue() {
         return +`${this.iBlockRow}${this.iBlock}${this.iRow}${this.iTile}`;
     }
@@ -20,8 +17,9 @@ export class BoardCoords {
 }
 
 export interface CurrentlyDragged {
+    index: number;
     pattern: any[];
-    startPoint: string[];
+    startPoint: number[];
     patternSize: any;
 }
 

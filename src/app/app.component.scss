@@ -39,8 +39,8 @@
     .shape {
         width: max-content;
         height: max-content;
-        display: grid;
-        grid-template-columns: auto auto auto;
+        display: flex;
+        flex-direction: column;
 
         .block-tile {
             border: 0px solid transparent !important;

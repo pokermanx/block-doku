@@ -28,7 +28,7 @@
 
 <div class="shape-set-wrapper">
   <div class="shape-set">
-    <div *ngFor="let shape of shapeSet; let iShape = index"
+    <div *ngFor="let shape of currentPlayShapes; let iShape = index"
          class="shape"
          draggable="true"
          [ngClass]="{
@@ -60,18 +60,21 @@
 
 <!-- <div class="board-wrapper">
   <div class="board">
-    <div *ngFor="let row of generatorBoard; let iBlock = index"
-         class="block-tile">
-      <div *ngFor="let innerRow of row; let iRow = index"
-           class="inner-row">
-        <div *ngFor="let tile of innerRow; let iTile = index"
-             (click)="tile.isFilled = !tile.isFilled"
-             class="tile"
-             [id]="'generator-board;' + iBlock + ';' + iRow + ';' + iTile"
-             [ngClass]="{
+    <div *ngFor="let blocksRow of generatorBoard; let iBlockRow = index"
+         class="block-row-tile">
+      <div *ngFor="let block of blocksRow; let iBlock = index"
+           class="block-tile">
+        <div *ngFor="let row of block; let iRow = index"
+             class="inner-row">
+          <div *ngFor="let tile of row; let iTile = index"
+               (click)="tile.isFilled = !tile.isFilled"
+               class="tile"
+               [id]="'generator-board;' + iBlock + ';' + iRow + ';' + iTile"
+               [ngClass]="{
                   'filled': tile.isFilled,
                   'empty': !tile.isFilled
                 }">
+          </div>
         </div>
       </div>
     </div>

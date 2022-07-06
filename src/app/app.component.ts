@@ -1,64 +1,29 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import * as _ from 'lodash';
 
 import { BoardCoords, CurrentlyDragged, DeltaCoords, Size } from './shared/models/misc.model';
 import { InsertShapeData, Shape } from './shared/models/shape.model';
 import { Tile } from './shared/models/tile.model';
+import { ShapesService } from './shared/services/shapes.service';
 
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.scss']
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
 
     board: Tile[][][][] = [];
     flatBoard: Tile[] = [];
 
     shapeSet: Shape[] = [];
+    currentPlayShapes: Shape[] = [];
 
     generatorBoard: Tile[][][][] = [];
 
     currentlyDragged: CurrentlyDragged | undefined;
 
     score: number = 0;
-
-    readonly patterns = [
-        [
-            [
-                [
-                    [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, true), new Tile(0, 0, 0, 2, true)],
-                ]
-            ]
-        ],
-        [
-            [
-                [
-                    [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, true), new Tile(0, 0, 0, 2, true)],
-                ],
-                [
-                    [new Tile(0, 1, 0, 0, true), new Tile(0, 1, 0, 1, true), new Tile(0, 1, 0, 2, true)],
-                ]
-            ]
-        ],
-        [
-            [
-                [
-                    [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, false), new Tile(0, 0, 0, 2, false)],
-                    [new Tile(0, 0, 1, 0, true), new Tile(0, 0, 1, 1, false), new Tile(0, 0, 1, 2, false)],
-                    [new Tile(0, 0, 2, 0, true), new Tile(0, 0, 2, 1, false), new Tile(0, 0, 2, 2, false)],
-                ],
-            ]
-        ],
-        [
-            [
-                [
-                    [new Tile(0, 0, 0, 0, true), new Tile(0, 0, 0, 1, true), new Tile(0, 0, 0, 2, false)],
-                    [new Tile(0, 0, 1, 0, true), new Tile(0, 0, 1, 1, true), new Tile(0, 0, 1, 2, false)],
-                ]
-            ]
-        ],
-    ];
 
     readonly BOARD_BLOCK_ROW_LIMIT = 3;
     readonly BOARD_BLOCK_LIMIT = 3;
@@ -129,9 +94,13 @@ export class AppComponent {
         return this.separateByColumns(this.board);
     }
 
-    constructor() {
+    constructor(private shapesService: ShapesService) {
         this.createBoard();
         this.generateShapes();
+    }
+
+    ngOnInit(): void {
+        this.startGame();
     }
 
     onDragStart($event: DragEvent, shape: Shape): void {
@@ -141,6 +110,7 @@ export class AppComponent {
         }
 
         this.currentlyDragged = {
+            index: shape.index as number,
             pattern: shape.pattern,
             startPoint: shape.dragPoint.id.split(';').slice(1),
             patternSize: shape.patternSize
@@ -160,10 +130,10 @@ export class AppComponent {
 
         if (this.currentlyDragged) {
             const shapeData = new InsertShapeData(
-                +this.currentlyDragged.startPoint[0],
-                +this.currentlyDragged.startPoint[1],
-                +this.currentlyDragged.startPoint[2],
-                +this.currentlyDragged.startPoint[3],
+                this.currentlyDragged.startPoint[0],
+                this.currentlyDragged.startPoint[1],
+                this.currentlyDragged.startPoint[2],
+                this.currentlyDragged.startPoint[3],
                 this.currentlyDragged.pattern,
                 this.currentlyDragged.patternSize
             );
@@ -192,14 +162,29 @@ export class AppComponent {
     generateShape(): void {
         const shape = this.generatorBoard
             .filter(x => x.some(y => y.some(z => z.some(u => u.isFilled))))
-            .map(x => x.map(y => y.map(z => z.map(u => `/new Tile(${u.coords.iBlock},${u.coords.iRow},${u.coords.iTile},${u.isFilled})/`))));
+            .map(x => x.map(y => y.map(z => z.map(u => `/new Tile(${u.coords.iBlockRow},${u.coords.iBlock},${u.coords.iRow},${u.coords.iTile},${u.isFilled})/`))));
 
         console.table(JSON.stringify(shape).replace(/\"/g, '').replace(/\//g, ''));
+    }
+
+    private startGame() {
+        this.updateCurrentPlayShapes();
+    }
+
+    private updateCurrentPlayShapes() {
+        this.currentPlayShapes = _.sampleSize(this.shapeSet, 3);
+        this.currentPlayShapes.forEach((shape, i) => shape.index = i);
     }
 
     private insertShape(): void {
         this.applyShape();
         this.applyMatches();
+
+        this.currentPlayShapes = this.currentPlayShapes.filter(x => x.index !== this.currentlyDragged?.index)
+
+        if (this.currentPlayShapes.length === 0) {
+            this.updateCurrentPlayShapes();
+        }
     }
 
     private projectShape(shapeData: InsertShapeData, dropCoords: BoardCoords): void {
@@ -226,7 +211,7 @@ export class AppComponent {
                 const { dxBlockRow, dxBlock, dxRow, dxTile }: any = this.calculateTilePosition(tile, { dBlockRow, dBlock, dRow, dTile });
                 const dCoords = new BoardCoords(dxBlockRow, dxBlock, dxRow, dxTile);
 
-                return this.flatBoard.find(x => x.coords.stringValue === dCoords.stringValue);
+                return this.flatBoard.find(x => x.coords.numberValue === dCoords.numberValue);
             })
             .filter(x => !!x) as Tile[];
 
@@ -277,7 +262,11 @@ export class AppComponent {
 
         this.score += matches.length * multiplier * this.TILE_SCORE;
 
-        matches.forEach(match => match.isFilled = false);
+        matches.forEach(match => {
+            match.isFilled = false;
+            match.isMatch = false;
+            match.isProjection = false;
+        });
     }
 
     private calculateTilePosition(tile: Tile, deltaCoords: DeltaCoords) {
@@ -307,7 +296,6 @@ export class AppComponent {
 
     private createBoard(): void {
         this.board = this.emptyBoard;
-        console.table(this.board)
 
         this.generatorBoard = this.emptyBoard;
 
@@ -315,7 +303,7 @@ export class AppComponent {
     }
 
     private generateShapes(): void {
-        this.shapeSet = this.patterns.map(pattern => new Shape(pattern, this.calculatePatternSize(pattern)));
+        this.shapeSet = this.shapesService.shapes.map(pattern => new Shape(pattern, this.calculatePatternSize(pattern)));
         console.log(this.shapeSet)
     }
 

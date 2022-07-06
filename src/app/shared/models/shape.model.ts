@@ -1,6 +1,8 @@
 import { BoardCoords, Size } from './misc.model';
 
 export class Shape {
+    index?: number;
+    
     pattern: any[] = [];
     isBeingDragged: boolean = false;
     dragPoint?: any;
