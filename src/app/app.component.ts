@@ -118,9 +118,7 @@ export class AppComponent implements OnInit {
     }
 
     onDrop($event: DragEvent): void {
-        if (this.currentlyDragged) {
-            this.insertShape();
-        }
+        this.insertShape();
     }
 
     onDragOver($event: DragEvent): void {
@@ -177,13 +175,15 @@ export class AppComponent implements OnInit {
     }
 
     private insertShape(): void {
-        this.applyShape();
-        this.applyMatches();
+        if (this.currentlyDragged && this.flatBoard.some(x => x.isProjection)) {
+            this.applyShape();
+            this.applyMatches();
 
-        this.currentPlayShapes = this.currentPlayShapes.filter(x => x.index !== this.currentlyDragged?.index)
+            this.currentPlayShapes = this.currentPlayShapes.filter(x => x.index !== this.currentlyDragged?.index)
 
-        if (this.currentPlayShapes.length === 0) {
-            this.updateCurrentPlayShapes();
+            if (this.currentPlayShapes.length === 0) {
+                this.updateCurrentPlayShapes();
+            }
         }
     }
 
