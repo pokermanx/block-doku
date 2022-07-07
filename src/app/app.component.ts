@@ -139,9 +139,12 @@ export class AppComponent implements OnInit {
             const dropCoordsArray: number[] = ($event.target as HTMLElement).id.split(';').slice(1).map(el => +el);
             const dropCoords = new BoardCoords(dropCoordsArray[0], dropCoordsArray[1], dropCoordsArray[2], dropCoordsArray[3]);
 
-            this.projectShape(shapeData, dropCoords);
+            const projectedTiles = this.projectShape(shapeData, dropCoords);
 
-            this.runMathes();
+            if (!!projectedTiles.length) {
+                projectedTiles.forEach(tile => tile.isProjection = true);
+                this.runMathes();
+            }
         }
     }
 
@@ -184,10 +187,16 @@ export class AppComponent implements OnInit {
             if (this.currentPlayShapes.length === 0) {
                 this.updateCurrentPlayShapes();
             }
+
+            if (this.checkGameOver()) {
+                console.log('Game Over!');
+            } else {
+                console.log('Not over yet');
+            }
         }
     }
 
-    private projectShape(shapeData: InsertShapeData, dropCoords: BoardCoords): void {
+    private projectShape(shapeData: InsertShapeData, dropCoords: BoardCoords): Tile[] {
         const dBlockRow = dropCoords.iBlockRow - shapeData.coords.iBlockRow;
         const dBlock = dropCoords.iBlock - shapeData.coords.iBlock;
         const dRow = dropCoords.iRow - shapeData.coords.iRow;
@@ -199,7 +208,7 @@ export class AppComponent implements OnInit {
                 { dBlockRow, dBlock, dRow, dTile }
             )
         ) {
-            return;
+            return [];
         }
 
         const toProjectTiles = _.flattenDeep(shapeData.pattern)
@@ -216,10 +225,10 @@ export class AppComponent implements OnInit {
             .filter(x => !!x) as Tile[];
 
         if (toProjectTiles.some(x => x.isFilled)) {
-            return;
+            return [];
         }
 
-        toProjectTiles.forEach(tile => tile.isProjection = true);
+        return toProjectTiles;
     }
 
     private runMathes(): void {
@@ -378,6 +387,46 @@ export class AppComponent implements OnInit {
         const availableHeight = this.boardTileHeight - (deltaCoords.dBlockRow * this.BOARD_ROW_LIMIT) - deltaCoords.dRow;
         if (size.height > availableHeight) {
             return false;
+        }
+
+        return true;
+    }
+
+    private checkGameOver() {
+        const emptyTiles = this.flatBoard.filter(x => !x.isFilled);
+
+        for (let shapeI = 0; shapeI < this.currentPlayShapes.length; shapeI++) {
+            const flatShapeTiles = _.flattenDeep(this.currentPlayShapes[shapeI].pattern) as Tile[];
+
+            const firstDragPoint = flatShapeTiles.find(x => x.isFilled);
+
+            if (!firstDragPoint) {
+                throw new Error('Empty Shape');
+            }
+
+            const shapeData = new InsertShapeData(
+                firstDragPoint.coords.iBlockRow,
+                firstDragPoint.coords.iBlock,
+                firstDragPoint.coords.iRow,
+                firstDragPoint.coords.iTile,
+                this.currentPlayShapes[shapeI].pattern,
+                this.currentPlayShapes[shapeI].patternSize
+            );
+
+            for (let emptyTileI = 0; emptyTileI < emptyTiles.length; emptyTileI++) {
+                const dropCoords = new BoardCoords(
+                    emptyTiles[emptyTileI].coords.iBlockRow,
+                    emptyTiles[emptyTileI].coords.iBlock,
+                    emptyTiles[emptyTileI].coords.iRow,
+                    emptyTiles[emptyTileI].coords.iTile
+                );
+
+                const projectedTiles = this.projectShape(shapeData, dropCoords);
+
+                if (!!projectedTiles.length) {
+                    return false;
+                }
+            }
         }
 
         return true;
