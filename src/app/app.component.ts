@@ -1,9 +1,11 @@
 import { Component, OnInit } from '@angular/core';
 import * as _ from 'lodash';
+import { GameState } from './shared/enums/game-state.enum';
 
 import { BoardCoords, CurrentlyDragged, DeltaCoords, Size } from './shared/models/misc.model';
 import { InsertShapeData, Shape } from './shared/models/shape.model';
 import { Tile } from './shared/models/tile.model';
+import { GameStateService } from './shared/services/gamestate.service';
 import { ShapesService } from './shared/services/shapes.service';
 
 @Component({
@@ -94,13 +96,31 @@ export class AppComponent implements OnInit {
         return this.separateByColumns(this.board);
     }
 
-    constructor(private shapesService: ShapesService) {
+    constructor(
+        public gameState: GameStateService,
+
+        private shapesService: ShapesService,
+    ) {
         this.createBoard();
         this.generateShapes();
     }
 
     ngOnInit(): void {
         this.startGame();
+    }
+
+    startGame() {
+        this.flatBoard.forEach(tile => {
+            tile.isFilled = false;
+            tile.isMatch = false;
+            tile.isProjection = false;
+        });
+
+        this.score = 0;
+
+        this.updateCurrentPlayShapes();
+
+        this.gameState.setGameState(GameState.InProgress);
     }
 
     onDragStart($event: DragEvent, shape: Shape): void {
@@ -168,10 +188,6 @@ export class AppComponent implements OnInit {
         console.table(JSON.stringify(shape).replace(/\"/g, '').replace(/\//g, ''));
     }
 
-    private startGame() {
-        this.updateCurrentPlayShapes();
-    }
-
     private updateCurrentPlayShapes() {
         this.currentPlayShapes = _.sampleSize(this.shapeSet, 3);
         this.currentPlayShapes.forEach((shape, i) => shape.index = i);
@@ -189,9 +205,7 @@ export class AppComponent implements OnInit {
             }
 
             if (this.checkGameOver()) {
-                console.log('Game Over!');
-            } else {
-                console.log('Not over yet');
+                this.gameState.setGameState(GameState.GameOver);
             }
         }
     }

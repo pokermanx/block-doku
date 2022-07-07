@@ -81,3 +81,16 @@
   </div>
   <button (click)="generateShape()">Generate</button>
 </div> -->
+
+<div *ngIf="gameState.isGameOver"
+     class="game-state-screen">
+  <div class="game-over-screen">
+    <span>
+      Game Over
+    </span>
+    <span>
+      Your score: {{ score }}
+    </span>
+    <button (click)="startGame()">Restart</button>
+  </div>
+</div>

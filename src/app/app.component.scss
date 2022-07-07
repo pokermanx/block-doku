@@ -2,7 +2,6 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100%;
     width: 100%;
 }
 
@@ -37,6 +36,7 @@
     grid-row-gap: 30px;
 
     .shape {
+        justify-self: center;
         width: max-content;
         height: max-content;
         display: flex;
@@ -87,6 +87,55 @@
                 background-color: #cbff3e;
                 border: 1px #7b7b7b (232, 255, 129);
             }
+        }
+    }
+}
+
+.game-state-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    background: rgba($color: #ffffff, $alpha: 0.8);
+    
+    .game-over-screen {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        flex-direction: column;
+        
+        transform: translateY(-150px);
+
+        > span {
+            &:nth-child(1) {
+                font-size: 38px;
+                font-weight: bold;
+                margin-bottom: 4px;
+            }
+            &:nth-child(2) {
+                font-size: 30px;
+                margin-bottom: 20px;
+            }
+        }
+
+        > button {
+            cursor: pointer;
+            outline: none;
+
+            width: 200px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            font-size: 30px;
         }
     }
 }
