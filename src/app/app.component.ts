@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Renderer2 } from '@angular/core';
 import * as _ from 'lodash';
 import { GameState } from './shared/enums/game-state.enum';
 
@@ -6,6 +6,7 @@ import { BoardCoords, CurrentlyDragged, DeltaCoords, Size } from './shared/model
 import { InsertShapeData, Shape } from './shared/models/shape.model';
 import { Tile } from './shared/models/tile.model';
 import { GameStateService } from './shared/services/gamestate.service';
+import { ScoreService } from './shared/services/score.service';
 import { ShapesService } from './shared/services/shapes.service';
 
 @Component({
@@ -97,8 +98,10 @@ export class AppComponent implements OnInit {
     }
 
     constructor(
+        public scoreService: ScoreService,
         public gameState: GameStateService,
 
+        private renderer: Renderer2,
         private shapesService: ShapesService,
     ) {
         this.createBoard();
@@ -128,6 +131,10 @@ export class AppComponent implements OnInit {
             $event.preventDefault();
             return;
         }
+
+        setTimeout(() => {
+            this.renderer.setStyle($event.target, 'visibility', 'hidden');
+        }, 0);
 
         this.currentlyDragged = {
             index: shape.index as number,
@@ -177,6 +184,7 @@ export class AppComponent implements OnInit {
         shape.isBeingDragged = false;
         shape.dragPoint = undefined;
         this.runCleanProjection();
+        this.renderer.setStyle($event.target, 'visibility', 'visible');
         delete this.currentlyDragged;
     }
 
@@ -206,6 +214,7 @@ export class AppComponent implements OnInit {
 
             if (this.checkGameOver()) {
                 this.gameState.setGameState(GameState.GameOver);
+                this.scoreService.setHighScore(this.score);
             }
         }
     }
@@ -271,6 +280,8 @@ export class AppComponent implements OnInit {
     }
 
     private applyShape(): void {
+        this.score += this.flatBoard.filter(x => x.isProjection).length;
+
         this.flatBoard.forEach(tile => {
             if (tile.isProjection) {
                 tile.isFilled = true;
@@ -281,9 +292,10 @@ export class AppComponent implements OnInit {
     private applyMatches(): void {
         const matches = this.flatBoard.filter(x => x.isMatch);
 
+        // This should be changed for different size boards
         const multiplier = matches.length / 9;
 
-        this.score += matches.length * multiplier * this.TILE_SCORE;
+        this.score += ~~(matches.length * multiplier * this.TILE_SCORE);
 
         matches.forEach(match => {
             match.isFilled = false;

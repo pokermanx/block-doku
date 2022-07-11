@@ -1,4 +1,12 @@
-<span class="score">{{ score }}</span>
+<div class="score-board">
+  <span class="score">
+    {{ score }}
+  </span>
+  <span *ngIf="scoreService.highscore > 0"
+        class="high-score">
+    High Score: {{ scoreService.highscore }}
+  </span>
+</div>
 
 <div class="board-wrapper">
   <div class="board"
@@ -44,7 +52,7 @@
                class="inner-row">
             <div *ngFor="let tile of row"
                  class="tile"
-                 (mousedown)="setStartPoint($event, shape)"
+                 (mousedown)="tile.isFilled && setStartPoint($event, shape)"
                  [id]="'shape-' + iShape + ';' + tile.coords.iBlockRow + ';' + tile.coords.iBlock + ';' + tile.coords.iRow + ';' + tile.coords.iTile"
                  [ngClass]="{
                 'filled': tile.isFilled,
